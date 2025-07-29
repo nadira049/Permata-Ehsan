@@ -70,7 +70,11 @@
                         label: 'Latest Level',
                         data: [
                             @foreach($allChildrenInYear as $child)
-                                {{ $progress[$child->id]['level'] ?? 'null' }},
+                                @php
+                                    $childProgress = $progress->get($child->id);
+                                    $level = $childProgress ? ($childProgress->level === 'Level 1' ? 1 : ($childProgress->level === 'Level 2' ? 2 : ($childProgress->level === 'Level 3' ? 3 : null))) : null;
+                                @endphp
+                                {{ $level ?? 'null' }},
                             @endforeach
                         ],
                         backgroundColor: [
