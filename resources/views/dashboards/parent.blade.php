@@ -37,16 +37,7 @@
         </form>
         <div class="mt-2 text-sm text-gray-500">Showing progress for: <span class="font-semibold">{{ $selectedDate }}</span> | <span class="font-semibold">Year {{ request('year', $years[0]) }}</span></div>
     </div>
-    <div class="w-full flex flex-col md:flex-row justify-center gap-8 mb-12">
-        <div class="flex-1 bg-gray-100 rounded-xl shadow p-6 text-center">
-            <div class="text-lg font-semibold mb-2">Year {{ request('year', $years[0]) }} Progress for {{ $selectedDate }}</div>
-            <div class="text-3xl font-bold text-blue-700 mb-1">{{ $progressStats[request('year', $years[0])]['withProgress'] ?? 0 }} / {{ $progressStats[request('year', $years[0])]['total'] ?? 0 }}</div>
-            <div class="text-sm text-gray-500">Progress / Total</div>
-            @if(($progressStats[request('year', $years[0])]['total'] ?? 0) > 0)
-                <div class="mt-2 text-xs text-gray-600">{{ round(($progressStats[request('year', $years[0])]['withProgress'] ?? 0) / ($progressStats[request('year', $years[0])]['total'] ?? 1) * 100, 1) }}% completed</div>
-            @endif
-        </div>
-    </div>
+
     <div class="w-full flex flex-col items-center mb-12">
         <div class="grid grid-cols-1 md:grid-cols-1 gap-8 w-full">
             <div class="bg-white rounded-xl shadow p-6 w-full">
@@ -56,32 +47,40 @@
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    @php
+        $chartData = [];
+        $chartColors = [];
+        $parentChildrenIds = auth()->user()->children()->pluck('id')->toArray();
+        
+        foreach($allChildrenInYear as $child) {
+            $childProgress = $progress->get($child->id);
+            $level = $childProgress ? ($childProgress->level === 'Level 1' ? 1 : ($childProgress->level === 'Level 2' ? 2 : ($childProgress->level === 'Level 3' ? 3 : 0))) : 0;
+            $chartData[] = $level;
+            
+            // Check if this child belongs to the current parent
+            $isParentChild = in_array($child->id, $parentChildrenIds);
+            
+            // Different color scheme for parent's children vs other children
+            if ($isParentChild) {
+                // Parent's children - bright colors
+                $chartColors[] = $level === 0 ? '#fca5a5' : ($level === 1 ? '#fbbf24' : ($level === 2 ? '#34d399' : '#3b82f6'));
+            } else {
+                // Other children - muted colors
+                $chartColors[] = $level === 0 ? '#e5e7eb' : ($level === 1 ? '#fef3c7' : ($level === 2 ? '#d1fae5' : '#dbeafe'));
+            }
+        }
+        $chartLabels = $allChildrenInYear->pluck('name')->toArray();
+    @endphp
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             new Chart(document.getElementById('progressBarChart_{{ request('year', $years[0]) }}').getContext('2d'), {
                 type: 'bar',
                 data: {
-                    labels: [
-                        @foreach($allChildrenInYear as $child)
-                            "{{ $child->name }}",
-                        @endforeach
-                    ],
+                    labels: @json($chartLabels),
                     datasets: [{
                         label: 'Latest Level',
-                        data: [
-                            @foreach($allChildrenInYear as $child)
-                                @php
-                                    $childProgress = $progress->get($child->id);
-                                    $level = $childProgress ? ($childProgress->level === 'Level 1' ? 1 : ($childProgress->level === 'Level 2' ? 2 : ($childProgress->level === 'Level 3' ? 3 : null))) : null;
-                                @endphp
-                                {{ $level ?? 'null' }},
-                            @endforeach
-                        ],
-                        backgroundColor: [
-                            @foreach($allChildrenInYear as $child)
-                                "{{ $children->pluck('id')->contains($child->id) ? '#2d3748' : '#34d399' }}",
-                            @endforeach
-                        ],
+                        data: @json($chartData),
+                        backgroundColor: @json($chartColors),
                         borderRadius: 8,
                     }]
                 },
@@ -93,11 +92,12 @@
                     },
                     scales: {
                         y: {
-                            min: 1,
+                            min: 0,
                             max: 3,
                             ticks: {
                                 stepSize: 1,
                                 callback: function(value) {
+                                    if (value === 0) return 'No Progress';
                                     if (value === 1) return 'Level 1';
                                     if (value === 2) return 'Level 2';
                                     if (value === 3) return 'Level 3';

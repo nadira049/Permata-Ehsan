@@ -152,15 +152,25 @@
             }
         }
     });
+    @php
+        $chartData = [];
+        $chartColors = [];
+        foreach($progressBarData[$selectedYear]['labels'] as $index => $label) {
+            $level = $progressBarData[$selectedYear]['levels'][$index] ?? 0;
+            $chartData[] = $level;
+            $chartColors[] = $level === 0 ? '#e5e7eb' : ($level === 1 ? '#fbbf24' : ($level === 2 ? '#34d399' : '#3b82f6'));
+        }
+        $chartLabels = $progressBarData[$selectedYear]['labels'];
+    @endphp
     document.addEventListener('DOMContentLoaded', function () {
         new Chart(document.getElementById('progressBarChart_{{ $selectedYear }}').getContext('2d'), {
             type: 'bar',
             data: {
-                labels: @json($progressBarData[$selectedYear]['labels']),
+                labels: @json($chartLabels),
                 datasets: [{
                     label: 'Latest Level',
-                    data: @json($progressBarData[$selectedYear]['levels']),
-                    backgroundColor: '#60a5fa',
+                    data: @json($chartData),
+                    backgroundColor: @json($chartColors),
                     borderRadius: 8,
                 }]
             },
@@ -172,11 +182,12 @@
                 },
                 scales: {
                     y: {
-                        min: 1,
+                        min: 0,
                         max: 3,
                         ticks: {
                             stepSize: 1,
                             callback: function(value) {
+                                if (value === 0) return 'No Progress';
                                 if (value === 1) return 'Level 1';
                                 if (value === 2) return 'Level 2';
                                 if (value === 3) return 'Level 3';
